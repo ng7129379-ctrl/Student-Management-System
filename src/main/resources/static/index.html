@@ -1,0 +1,321 @@
+html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudentHub | Student Management</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f1f5f9;
+    color: #172033;
+}
+
+header {
+    background: #172554;
+    color: white;
+    padding: 22px 7%;
+}
+
+header h1 { margin: 0 0 6px; }
+header p { margin: 0; color: #bfdbfe; }
+
+main {
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+.stats {
+    background: white;
+    border-radius: 14px;
+    padding: 22px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 15px #0f172a0b;
+}
+
+.stats h2 { margin: 0; color: #2563eb; }
+
+.layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 22px;
+}
+
+.card {
+    background: white;
+    border-radius: 14px;
+    padding: 22px;
+    box-shadow: 0 4px 15px #0f172a0b;
+}
+
+h3 { margin-top: 0; }
+
+input {
+    display: block;
+    width: 100%;
+    padding: 11px;
+    margin: 10px 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    font-size: 14px;
+}
+
+button {
+    border: 0;
+    padding: 11px 15px;
+    border-radius: 7px;
+    cursor: pointer;
+    background: #2563eb;
+    color: white;
+    font-weight: bold;
+}
+
+button:hover { opacity: .88; }
+.delete { background: #dc2626; }
+.message { margin-top: 12px; font-size: 14px; }
+
+.search {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.search input { margin: 0; }
+
+.table-wrap { overflow-x: auto; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+th, td {
+    text-align: left;
+    padding: 12px 9px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+th { background: #f8fafc; }
+
+@media (max-width: 750px) {
+    .layout { grid-template-columns: 1fr; }
+    main { margin-top: 18px; }
+}
+</style>
+</head>
+
+<body>
+<header>
+    <h1>🎓 StudentHub</h1>
+    <p>Student Management Portal</p>
+</header>
+
+<main>
+    <section class="stats">
+        <p>Total Students</p>
+        <h2 id="total">0</h2>
+    </section>
+
+    <div class="layout">
+        <section class="card">
+            <h3>➕ Add Student</h3>
+
+            <form id="studentForm">
+                <input id="roll" type="number"
+                       placeholder="Roll Number" required>
+                <input id="name" placeholder="Full Name" required>
+                <input id="email" type="email"
+                       placeholder="Email Address" required>
+                <input id="course" placeholder="Course" required>
+                <input id="marks" type="number" min="0" max="100"
+                       step="0.01" placeholder="Marks (0-100)" required>
+                <button type="submit">Add Student</button>
+            </form>
+
+            <p id="message" class="message"></p>
+        </section>
+
+        <section class="card">
+            <h3>📋 Student Records</h3>
+
+            <div class="search">
+                <input id="search" placeholder="Search name or roll number">
+                <button type="button" onclick="loadStudents()">Refresh</button>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Roll No.</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Course</th>
+                            <th>Marks</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentRows">
+                        <tr><td colspan="6">Loading students...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</main>
+
+<script>
+let allStudents = [];
+
+async function loadStudents() {
+    const rows = document.getElementById("studentRows");
+
+    try {
+        const response = await fetch("/api/students");
+        if (!response.ok) throw new Error("Could not load students");
+
+        allStudents = await response.json();
+        document.getElementById("total").textContent = allStudents.length;
+        renderStudents();
+    } catch (error) {
+        rows.innerHTML =
+            '<tr><td colspan="6">Could not load records. Check server and database.</td></tr>';
+    }
+}
+
+function renderStudents() {
+    const query = document.getElementById("search").value
+        .trim().toLowerCase();
+
+    const filtered = allStudents.filter(s =>
+        String(s.roll_no).includes(query) ||
+        String(s.name || "").toLowerCase().includes(query)
+    );
+
+    const rows = document.getElementById("studentRows");
+    rows.replaceChildren();
+
+    if (filtered.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 6;
+        td.textContent = "No students found.";
+        tr.appendChild(td);
+        rows.appendChild(tr);
+        return;
+    }
+
+    filtered.forEach(s => {
+        const tr = document.createElement("tr");
+
+        [s.roll_no, s.name, s.email, s.course, s.marks].forEach(value => {
+            const td = document.createElement("td");
+            td.textContent = value ?? "";
+            tr.appendChild(td);
+        });
+
+        const action = document.createElement("td");
+        const button = document.createElement("button");
+        button.textContent = "Delete";
+        button.className = "delete";
+        button.onclick = () => deleteStudent(s.roll_no);
+        action.appendChild(button);
+        tr.appendChild(action);
+        rows.appendChild(tr);
+    });
+}
+
+document.getElementById("search").addEventListener("input", renderStudents);
+
+document.getElementById("studentForm").addEventListener("submit", async e => {
+    e.preventDefault();
+
+    const student = {
+        roll_no: document.getElementById("roll").value,
+        name: document.getElementById("name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        course: document.getElementById("course").value.trim(),
+        marks: document.getElementById("marks").value
+    };
+
+    const message = document.getElementById("message");
+
+    try {
+        const response = await fetch("/api/students", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(student)
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || "Could not add student");
+
+        message.textContent = "Student added successfully!";
+        message.style.color = "green";
+        e.target.reset();
+        await loadStudents();
+    } catch (error) {
+        message.textContent = error.message;
+        message.style.color = "red";
+    }
+});
+async function deleteStudent(rollNo) {
+    if (!confirm("Delete student with roll number " + rollNo + "?")) return;
+
+    try {
+        const response = await fetch("/api/students/" + rollNo, {
+            method: "DELETE"
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Delete failed. Status: " + response.status
+            );
+        }
+
+        alert(result.message);
+        await loadStudents();
+
+    } catch (error) {
+        console.error("Delete error:", error);
+        alert("Delete failed: " + error.message);
+    }
+}async function deleteStudent(rollNo) {
+    if (!confirm("Delete student with roll number " + rollNo + "?")) return;
+
+    try {
+        const response = await fetch("/api/students/" + rollNo, {
+            method: "DELETE"
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Delete failed. Status: " + response.status
+            );
+        }
+
+        alert(result.message);
+        await loadStudents();
+
+    } catch (error) {
+        console.error("Delete error:", error);
+        alert("Delete failed: " + error.message);
+    
+    }
+}
+
+loadStudents();
+</script>
+</body>
+</html>
